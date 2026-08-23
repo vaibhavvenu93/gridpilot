@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,10 @@ from reportlab.pdfgen import canvas
 from gridpilot.ingestion.extractor import extract_fields_from_document
 from gridpilot.ingestion.mapper import BillMappingError, extraction_to_bill
 from gridpilot.ingestion.pdf import read_pdf
+
+
+TEST_PERIOD_START = date(2026, 7, 1)
+TEST_PERIOD_END = date(2026, 7, 31)
 
 
 def create_mapper_test_bill(path: Path) -> None:
@@ -37,13 +42,21 @@ def test_pdf_extraction_maps_to_electricity_bill(tmp_path: Path):
         extraction,
         bill_id="GP-PDF-001",
         facility_name="Demo Manufacturing Plant",
+        country="India",
+        billing_period_start=TEST_PERIOD_START,
+        billing_period_end=TEST_PERIOD_END,
     )
 
     assert bill.bill_id == "GP-PDF-001"
-    assert bill.facility_name == "Demo Manufacturing Plant"
 
-    assert bill.consumption_kwh == 92482.0
-    assert bill.maximum_demand_kva == 417.0
+    assert bill.facility.name == "Demo Manufacturing Plant"
+    assert bill.facility.country == "India"
+
+    assert bill.billing_period.start == TEST_PERIOD_START
+    assert bill.billing_period.end == TEST_PERIOD_END
+
+    assert bill.consumption.kwh == 92482.0
+    assert bill.demand.maximum_kva == 417.0
     assert bill.power_factor == 0.89
     assert bill.total_cost == 524381.0
 
@@ -59,12 +72,43 @@ def test_pdf_charges_map_to_bill(tmp_path: Path):
         extraction,
         bill_id="GP-PDF-002",
         facility_name="Demo Manufacturing Plant",
+        country="India",
+        billing_period_start=TEST_PERIOD_START,
+        billing_period_end=TEST_PERIOD_END,
     )
 
-    assert bill.charges.energy_charge == 310000.0
-    assert bill.charges.demand_charge == 112000.0
-    assert bill.charges.fixed_charge == 10000.0
+    assert bill.charges.energy == 310000.0
+    assert bill.charges.demand == 112000.0
+    assert bill.charges.fixed == 10000.0
     assert bill.charges.power_factor_penalty == 24000.0
+
+
+def test_mapping_preserves_evidence(tmp_path: Path):
+    pdf_path = tmp_path / "bill.pdf"
+    create_mapper_test_bill(pdf_path)
+
+    document = read_pdf(pdf_path)
+    extraction = extract_fields_from_document(document)
+
+    bill = extraction_to_bill(
+        extraction,
+        bill_id="GP-PDF-003",
+        facility_name="Demo Manufacturing Plant",
+        country="India",
+        billing_period_start=TEST_PERIOD_START,
+        billing_period_end=TEST_PERIOD_END,
+    )
+
+    assert len(bill.evidence) > 0
+
+    evidence_fields = {
+        evidence.field
+        for evidence in bill.evidence
+    }
+
+    assert "consumption_kwh" in evidence_fields
+    assert "total_cost" in evidence_fields
+    assert "power_factor" in evidence_fields
 
 
 def test_missing_required_field_blocks_mapping(tmp_path: Path):
@@ -91,4 +135,25 @@ def test_missing_required_field_blocks_mapping(tmp_path: Path):
             extraction,
             bill_id="GP-INCOMPLETE-001",
             facility_name="Incomplete Facility",
+            country="India",
+            billing_period_start=TEST_PERIOD_START,
+            billing_period_end=TEST_PERIOD_END,
+        )
+
+
+def test_missing_billing_period_blocks_mapping(tmp_path: Path):
+    pdf_path = tmp_path / "bill.pdf"
+    create_mapper_test_bill(pdf_path)
+
+    document = read_pdf(pdf_path)
+    extraction = extract_fields_from_document(document)
+
+    with pytest.raises(
+        BillMappingError,
+        match="Billing period",
+    ):
+        extraction_to_bill(
+            extraction,
+            bill_id="GP-NO-PERIOD-001",
+            facility_name="Demo Manufacturing Plant",
         )
