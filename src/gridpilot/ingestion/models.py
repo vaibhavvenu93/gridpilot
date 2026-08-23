@@ -68,7 +68,7 @@ class BillExtraction(BaseModel):
 
     utility_name: str | None = None
 
-          metadata: BillingMetadata = Field(
+    metadata: BillingMetadata = Field(
         default_factory=BillingMetadata
     )
 
