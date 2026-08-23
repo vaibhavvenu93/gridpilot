@@ -91,15 +91,14 @@ def test_extractor_finds_expected_fields(
         for field in extraction.fields
     }
 
-    assert "consumption_kwh" in field_names
+       assert "consumption_kwh" in field_names
     assert "maximum_demand_kva" in field_names
     assert "power_factor" in field_names
     assert "power_factor_penalty" in field_names
-   assert "energy_charge" in field_names
-assert "demand_charge" in field_names
-assert "fixed_charge" in field_names
+    assert "energy_charge" in field_names
+    assert "demand_charge" in field_names
+    assert "fixed_charge" in field_names
     assert "total_cost" in field_names
-
 
 def test_extractor_normalizes_values(
     tmp_path: Path,
