@@ -95,9 +95,9 @@ def test_extractor_finds_expected_fields(
     assert "maximum_demand_kva" in field_names
     assert "power_factor" in field_names
     assert "power_factor_penalty" in field_names
-    assert "energy_charges" in field_names
-    assert "demand_charges" in field_names
-    assert "fixed_charges" in field_names
+   assert "energy_charge" in field_names
+assert "demand_charge" in field_names
+assert "fixed_charge" in field_names
     assert "total_cost" in field_names
 
 
