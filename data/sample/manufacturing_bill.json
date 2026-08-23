@@ -1,0 +1,57 @@
+{
+  "bill_id": "GP-DEMO-001",
+  "facility": {
+    "name": "GridPilot Demo Manufacturing Plant",
+    "country": "IN",
+    "state": "Karnataka",
+    "facility_type": "manufacturing"
+  },
+  "billing_period": {
+    "start": "2026-07-01",
+    "end": "2026-07-31"
+  },
+  "consumption": {
+    "kwh": 92482
+  },
+  "demand": {
+    "maximum_kw": 371,
+    "maximum_kva": 417
+  },
+  "power_factor": 0.89,
+  "charges": {
+    "energy": 310000,
+    "demand": 112000,
+    "fixed": 10000,
+    "power_factor_penalty": 24000,
+    "reactive_energy": 0,
+    "taxes": 48000,
+    "other": 20381
+  },
+  "total_cost": 524381,
+  "currency": "INR",
+  "evidence": [
+    {
+      "field": "consumption.kwh",
+      "value": 92482,
+      "unit": "kWh",
+      "source": "synthetic_demo_bill",
+      "source_text": "Total consumption: 92,482 kWh",
+      "confidence": 1.0
+    },
+    {
+      "field": "demand.maximum_kva",
+      "value": 417,
+      "unit": "kVA",
+      "source": "synthetic_demo_bill",
+      "source_text": "Recorded Maximum Demand: 417 kVA",
+      "confidence": 1.0
+    },
+    {
+      "field": "power_factor",
+      "value": 0.89,
+      "source": "synthetic_demo_bill",
+      "source_text": "Average Power Factor: 0.89",
+      "confidence": 1.0
+    }
+  ]
+}
