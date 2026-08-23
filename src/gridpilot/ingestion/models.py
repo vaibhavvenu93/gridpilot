@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -43,8 +44,17 @@ class ExtractedField(BaseModel):
     ] = "EXTRACTED"
 
     evidence: SourceEvidence | None = None
+    
 
+class BillingMetadata(BaseModel):
+    """
+    Bill-level metadata extracted from the source document.
+    """
 
+    billing_period_start: date | None = None
+    billing_period_end: date | None = None
+
+    billing_period_evidence: SourceEvidence | None = None
 class BillExtraction(BaseModel):
     """
     Complete intermediate extraction produced from a source
@@ -57,6 +67,10 @@ class BillExtraction(BaseModel):
     source_file: str
 
     utility_name: str | None = None
+
+        metadata: BillingMetadata = Field(
+        default_factory=BillingMetadata
+    )
 
     extraction_method: Literal[
         "MANUAL",
