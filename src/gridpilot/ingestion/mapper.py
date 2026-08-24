@@ -52,15 +52,51 @@ def _build_evidence(
         if field.normalized_value is None:
             continue
 
+        source_evidence = field.evidence
+
         evidence.append(
             Evidence(
                 field=field.field_name,
                 value=field.normalized_value,
-                unit=getattr(field, "normalized_unit", None),
+                unit=field.unit,
                 source=extraction.source_file,
-                page=getattr(field, "page", None),
-                source_text=getattr(field, "source_text", None),
-                confidence=getattr(field, "confidence", 1.0),
+                page=(
+                    source_evidence.page
+                    if source_evidence is not None
+                    else None
+                ),
+                source_text=(
+                    source_evidence.raw_text
+                    if source_evidence is not None
+                    else None
+                ),
+                confidence=(
+                    source_evidence.confidence
+                    if source_evidence is not None
+                    else 1.0
+                ),
+            )
+        )
+
+    metadata_evidence = extraction.metadata.billing_period_evidence
+
+    if (
+        metadata_evidence is not None
+        and extraction.metadata.billing_period_start is not None
+        and extraction.metadata.billing_period_end is not None
+    ):
+        evidence.append(
+            Evidence(
+                field="billing_period",
+                value=(
+                    f"{extraction.metadata.billing_period_start.isoformat()}"
+                    f" to "
+                    f"{extraction.metadata.billing_period_end.isoformat()}"
+                ),
+                source=extraction.source_file,
+                page=metadata_evidence.page,
+                source_text=metadata_evidence.raw_text,
+                confidence=metadata_evidence.confidence,
             )
         )
 
@@ -80,6 +116,9 @@ def extraction_to_bill(
     """
     Convert evidence-backed extracted fields into GridPilot's
     canonical ElectricityBill model.
+
+    Billing-period dates are taken from extraction metadata unless
+    explicitly supplied as overrides.
 
     Required financial and consumption fields must exist before
     analysis is allowed to continue.
@@ -105,7 +144,19 @@ def extraction_to_bill(
             + ", ".join(missing)
         )
 
-    if billing_period_start is None or billing_period_end is None:
+    resolved_start = (
+        billing_period_start
+        if billing_period_start is not None
+        else extraction.metadata.billing_period_start
+    )
+
+    resolved_end = (
+        billing_period_end
+        if billing_period_end is not None
+        else extraction.metadata.billing_period_end
+    )
+
+    if resolved_start is None or resolved_end is None:
         raise BillMappingError(
             "Billing period start and end dates are required "
             "to construct ElectricityBill."
@@ -133,8 +184,8 @@ def extraction_to_bill(
     )
 
     billing_period = BillingPeriod(
-        start=billing_period_start,
-        end=billing_period_end,
+        start=resolved_start,
+        end=resolved_end,
     )
 
     consumption = Consumption(
