@@ -1,7 +1,9 @@
 import re
+from datetime import date
 
 from gridpilot.ingestion.models import (
     BillExtraction,
+    BillingMetadata,
     ExtractedField,
     SourceEvidence,
 )
@@ -49,6 +51,22 @@ FIELD_PATTERNS: list[tuple[str, str]] = [
 ]
 
 
+BILLING_PERIOD_PATTERNS = [
+    re.compile(
+        r"(?i)\bBilling\s+Period\s*[:\-]?\s*"
+        r"(\d{1,2}[/-]\d{1,2}[/-]\d{4})"
+        r"\s*(?:to|-)\s*"
+        r"(\d{1,2}[/-]\d{1,2}[/-]\d{4})"
+    ),
+    re.compile(
+        r"(?i)\bBilling\s+Period\s*[:\-]?\s*"
+        r"(\d{4}-\d{1,2}-\d{1,2})"
+        r"\s*(?:to|-)\s*"
+        r"(\d{4}-\d{1,2}-\d{1,2})"
+    ),
+]
+
+
 def _unit_from_match(
     match: re.Match[str],
 ) -> str | None:
@@ -60,6 +78,63 @@ def _unit_from_match(
         return None
 
     return match.group(2)
+
+
+def _parse_date(value: str) -> date:
+    """
+    Convert a supported electricity-bill date into a date object.
+    """
+
+    value = value.strip()
+
+    if re.fullmatch(r"\d{4}-\d{1,2}-\d{1,2}", value):
+        year, month, day = value.split("-")
+        return date(
+            int(year),
+            int(month),
+            int(day),
+        )
+
+    separator = "/" if "/" in value else "-"
+    day, month, year = value.split(separator)
+
+    return date(
+        int(year),
+        int(month),
+        int(day),
+    )
+
+
+def _extract_billing_metadata(
+    document: PDFDocument,
+) -> BillingMetadata:
+    """
+    Extract bill-level billing period metadata while preserving
+    evidence from the source PDF.
+    """
+
+    for page in document.pages:
+        for pattern in BILLING_PERIOD_PATTERNS:
+            match = pattern.search(page.text)
+
+            if match is None:
+                continue
+
+            start = _parse_date(match.group(1))
+            end = _parse_date(match.group(2))
+
+            return BillingMetadata(
+                billing_period_start=start,
+                billing_period_end=end,
+                billing_period_evidence=SourceEvidence(
+                    page=page.page_number,
+                    raw_text=match.group(0),
+                    source_label="Billing Period",
+                    confidence=1.0,
+                ),
+            )
+
+    return BillingMetadata()
 
 
 def extract_fields_from_document(
@@ -147,8 +222,19 @@ def extract_fields_from_document(
             + ", ".join(missing_fields)
         )
 
+    metadata = _extract_billing_metadata(document)
+
+    if (
+        metadata.billing_period_start is None
+        or metadata.billing_period_end is None
+    ):
+        warnings.append(
+            "Billing period could not be extracted from source document."
+        )
+
     return BillExtraction(
         source_file=document.source_file,
+        metadata=metadata,
         extraction_method="TEXT",
         fields=fields,
         warnings=warnings,
